@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, isUserAdmin } from "@/lib/auth";
 import { extractTextFromPdf } from "@/lib/pdf";
 import { generateNarrationScript } from "@/lib/ai";
 import { CREDIT_COSTS } from "@/types";
@@ -8,9 +8,10 @@ import { CREDIT_COSTS } from "@/types";
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();
+    const admin = isUserAdmin(user);
 
-    // Check credits
-    if (user.creditsBalance < CREDIT_COSTS.DECK_UPLOAD) {
+    // Check credits (admins bypass)
+    if (!admin && user.creditsBalance < CREDIT_COSTS.DECK_UPLOAD) {
       return NextResponse.json(
         { error: `Insufficient credits. Need ${CREDIT_COSTS.DECK_UPLOAD} credits.` },
         { status: 402 }
@@ -60,20 +61,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Deduct credits
-    await db.user.update({
-      where: { id: user.id },
-      data: { creditsBalance: { decrement: CREDIT_COSTS.DECK_UPLOAD } },
-    });
+    // Deduct credits (admins bypass)
+    if (!admin) {
+      await db.user.update({
+        where: { id: user.id },
+        data: { creditsBalance: { decrement: CREDIT_COSTS.DECK_UPLOAD } },
+      });
 
-    await db.creditTransaction.create({
-      data: {
-        userId: user.id,
-        actionType: "DECK_UPLOAD",
-        creditsUsed: CREDIT_COSTS.DECK_UPLOAD,
-        deckId: deck.id,
-      },
-    });
+      await db.creditTransaction.create({
+        data: {
+          userId: user.id,
+          actionType: "DECK_UPLOAD",
+          creditsUsed: CREDIT_COSTS.DECK_UPLOAD,
+          deckId: deck.id,
+        },
+      });
+    }
 
     // Start background narration generation (non-blocking)
     generateNarrationsForDeck(deck.id).catch(console.error);

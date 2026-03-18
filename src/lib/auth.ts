@@ -41,3 +41,8 @@ export async function requireAdmin() {
   if (!config?.isAdmin) throw new Error("Forbidden");
   return user;
 }
+
+export function isUserAdmin(user: { config: unknown }): boolean {
+  const config = user.config as Record<string, unknown> | null;
+  return config?.isAdmin === true;
+}
