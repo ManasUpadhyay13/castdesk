@@ -13,6 +13,13 @@ import {
   CheckCircle2,
   Sparkles,
 } from "lucide-react";
+import { generateOgMetadata } from "@/lib/metadata";
+
+export const metadata = generateOgMetadata({
+  title: "CastDeck — Practice Your Pitch Against AI Investors",
+  description: "Upload your pitch deck. Hear it narrated in your voice. Get grilled by 8 distinct investor personas who attack your real numbers, not generic questions.",
+  path: "/",
+});
 
 // ─── Attack style map ────────────────────────────────────────────────────────
 // Each persona's first "attack" vector is its defining pressure. We surface it
