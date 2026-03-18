@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireAuth, isUserAdmin } from "@/lib/auth";
 import { extractTextFromPdf } from "@/lib/pdf";
 import { generateNarrationScript } from "@/lib/ai";
+import { generateTTSSpeech, getDefaultVoiceId } from "@/lib/tts";
 import { CREDIT_COSTS } from "@/types";
 
 export async function POST(req: NextRequest) {
@@ -103,6 +104,8 @@ async function generateNarrationsForDeck(deckId: string) {
 
   if (!deck) return;
 
+  const voiceId = deck.elevenlabsVoiceId || await getDefaultVoiceId();
+
   try {
     for (const slide of deck.slides) {
       const script = await generateNarrationScript(
@@ -111,9 +114,18 @@ async function generateNarrationsForDeck(deckId: string) {
         deck.totalSlides
       );
 
+      // Generate audio from the script
+      let audioUrl: string | null = null;
+      try {
+        audioUrl = await generateTTSSpeech(script, voiceId);
+      } catch (audioError) {
+        console.error(`Audio generation failed for slide ${slide.slideNumber}:`, audioError);
+        // Continue without audio — script is still saved
+      }
+
       await db.slide.update({
         where: { id: slide.id },
-        data: { scriptText: script },
+        data: { scriptText: script, ...(audioUrl && { audioUrl }) },
       });
     }
 

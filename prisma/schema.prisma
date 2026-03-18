@@ -160,3 +160,9 @@ model CreditTransaction {
   @@index([deckId])
   @@index([sessionId])
 }
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
