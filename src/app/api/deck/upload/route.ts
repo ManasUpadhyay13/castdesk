@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getUserIdFromRequest } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { extractTextFromPdf } from "@/lib/pdf";
 import { generateNarrationScript } from "@/lib/ai";
 import { CREDIT_COSTS } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = getUserIdFromRequest(req);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const user = await requireAuth();
 
     // Check credits
-    const user = await db.user.findUnique({ where: { id: userId } });
-    if (!user || user.creditsBalance < CREDIT_COSTS.DECK_UPLOAD) {
+    if (user.creditsBalance < CREDIT_COSTS.DECK_UPLOAD) {
       return NextResponse.json(
         { error: `Insufficient credits. Need ${CREDIT_COSTS.DECK_UPLOAD} credits.` },
         { status: 402 }
@@ -45,7 +41,7 @@ export async function POST(req: NextRequest) {
     // Create deck record
     const deck = await db.deck.create({
       data: {
-        userId,
+        userId: user.id,
         filename,
         totalSlides,
         status: "PROCESSING",
@@ -66,13 +62,13 @@ export async function POST(req: NextRequest) {
 
     // Deduct credits
     await db.user.update({
-      where: { id: userId },
+      where: { id: user.id },
       data: { creditsBalance: { decrement: CREDIT_COSTS.DECK_UPLOAD } },
     });
 
     await db.creditTransaction.create({
       data: {
-        userId,
+        userId: user.id,
         actionType: "DECK_UPLOAD",
         creditsUsed: CREDIT_COSTS.DECK_UPLOAD,
         deckId: deck.id,

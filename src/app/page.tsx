@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import Link from "next/link";
 import { INVESTOR_PERSONAS } from "@/lib/personas";
 import { CREDIT_PACKS } from "@/types";
 import {
@@ -93,8 +94,12 @@ export default function HomePage() {
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
           </nav>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-sm">Sign in</Button>
-            <Button size="sm" className="text-sm">Get Started</Button>
+            <Link href="/sign-in">
+              <Button variant="ghost" size="sm" className="text-sm">Sign in</Button>
+            </Link>
+            <Link href="/sign-up">
+              <Button size="sm" className="text-sm">Get Started</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -139,20 +144,24 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full sm:w-auto gap-2 border-border/60 hover:border-border text-sm font-medium"
-              >
-                Try Free Demo
-              </Button>
-              <Button
-                size="lg"
-                className="w-full sm:w-auto gap-2 text-sm font-medium"
-              >
-                Get Started
-                <ArrowRight className="size-4" />
-              </Button>
+              <Link href="/sign-up">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto gap-2 border-border/60 hover:border-border text-sm font-medium"
+                >
+                  Try Free Demo
+                </Button>
+              </Link>
+              <Link href="/sign-up">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto gap-2 text-sm font-medium"
+                >
+                  Get Started
+                  <ArrowRight className="size-4" />
+                </Button>
+              </Link>
             </div>
 
             <p className="text-xs text-muted-foreground/70 tracking-wide">
@@ -373,7 +382,55 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+              {/* Free Demo tier */}
+              <Card className="relative flex flex-col border border-dashed border-border/50 bg-muted/10 hover:border-border/80 transition-all duration-200">
+                <CardHeader className="pb-4 pt-8">
+                  <div className="mb-1">
+                    <span className="text-sm font-medium text-muted-foreground">Free Demo</span>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">₹</span>
+                    <span className="text-4xl font-bold tracking-tight text-muted-foreground">0</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Zap className="size-3.5 text-muted-foreground/60" />
+                    <span className="text-sm font-semibold text-muted-foreground/70">No signup needed</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex flex-col flex-1 pt-0 gap-5">
+                  <p className="text-sm text-muted-foreground/80 leading-relaxed">
+                    See what CastDeck can do
+                  </p>
+                  <ul className="space-y-2.5 flex-1">
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground/70">
+                      <CheckCircle2 className="size-4 text-muted-foreground/40 flex-shrink-0 mt-px" />
+                      <span>Pre-loaded sample startup deck</span>
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground/70">
+                      <CheckCircle2 className="size-4 text-muted-foreground/40 flex-shrink-0 mt-px" />
+                      <span>Text-only roleplay (5 turns)</span>
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground/70">
+                      <CheckCircle2 className="size-4 text-muted-foreground/40 flex-shrink-0 mt-px" />
+                      <span>1 investor persona (Marcus Reid)</span>
+                    </li>
+                    <li className="flex items-start gap-2 text-sm text-muted-foreground/70">
+                      <CheckCircle2 className="size-4 text-muted-foreground/40 flex-shrink-0 mt-px" />
+                      <span>Blurred debrief report preview</span>
+                    </li>
+                  </ul>
+                  <Link href="/demo" className="w-full">
+                    <Button
+                      className="w-full mt-2"
+                      variant="outline"
+                    >
+                      Try Demo
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
               {CREDIT_PACKS.map((pack) => {
                 const isPopular = pack.id === "founder";
                 return (
@@ -446,16 +503,18 @@ export default function HomePage() {
                         )}
                       </ul>
 
-                      <Button
-                        className={`w-full mt-2 ${
-                          isPopular
-                            ? ""
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                        }`}
-                        variant={isPopular ? "default" : "secondary"}
-                      >
-                        Get {pack.credits} credits
-                      </Button>
+                      <Link href="/sign-up" className="w-full">
+                        <Button
+                          className={`w-full mt-2 ${
+                            isPopular
+                              ? ""
+                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                          }`}
+                          variant={isPopular ? "default" : "secondary"}
+                        >
+                          Get {pack.credits} credits
+                        </Button>
+                      </Link>
                     </CardContent>
                   </Card>
                 );
@@ -501,13 +560,17 @@ export default function HomePage() {
               Neither will ours. That&apos;s the point.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto border-border/60">
-                Try Free Demo
-              </Button>
-              <Button size="lg" className="w-full sm:w-auto gap-2">
-                Start Practicing
-                <ArrowRight className="size-4" />
-              </Button>
+              <Link href="/sign-up">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto border-border/60">
+                  Try Free Demo
+                </Button>
+              </Link>
+              <Link href="/sign-up">
+                <Button size="lg" className="w-full sm:w-auto gap-2">
+                  Start Practicing
+                  <ArrowRight className="size-4" />
+                </Button>
+              </Link>
             </div>
           </div>
         </section>

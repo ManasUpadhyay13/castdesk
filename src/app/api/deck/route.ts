@@ -1,15 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getUserIdFromRequest } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 
-export async function GET(req: NextRequest) {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET() {
+  const user = await requireAuth();
 
   const decks = await db.deck.findMany({
-    where: { userId },
+    where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

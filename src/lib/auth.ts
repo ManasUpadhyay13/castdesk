@@ -1,33 +1,43 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { NextRequest } from "next/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { db } from "@/lib/db";
 
-const JWT_SECRET = process.env.JWT_SECRET || "castdesk-dev-secret-change-in-production";
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+export async function getAuthUserId(): Promise<string | null> {
+  const { userId } = await auth();
+  return userId;
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
+export async function getOrCreateUser() {
+  const { userId } = await auth();
+  if (!userId) return null;
 
-export function createToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
-}
-
-export function verifyToken(token: string): { userId: string } | null {
-  try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string };
-  } catch {
-    return null;
+  let user = await db.user.findUnique({ where: { clerkId: userId } });
+  if (!user) {
+    const clerkUser = await currentUser();
+    user = await db.user.create({
+      data: {
+        clerkId: userId,
+        email: clerkUser?.emailAddresses[0]?.emailAddress ?? "",
+        name: clerkUser?.firstName
+          ? `${clerkUser.firstName}${clerkUser.lastName ? " " + clerkUser.lastName : ""}`
+          : "User",
+        creditsBalance: 0,
+        config: { isAdmin: false },
+      },
+    });
   }
+
+  return user;
 }
 
-export function getUserIdFromRequest(req: NextRequest): string | null {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const payload = verifyToken(token);
-  return payload?.userId ?? null;
+export async function requireAuth() {
+  const user = await getOrCreateUser();
+  if (!user) throw new Error("Unauthorized");
+  return user;
+}
+
+export async function requireAdmin() {
+  const user = await requireAuth();
+  const config = user.config as Record<string, unknown> | null;
+  if (!config?.isAdmin) throw new Error("Forbidden");
+  return user;
 }

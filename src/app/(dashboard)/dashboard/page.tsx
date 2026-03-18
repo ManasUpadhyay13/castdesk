@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +49,6 @@ function formatDate(iso: string): string {
 }
 
 export default function DashboardPage() {
-  const { token } = useAuth();
   const router = useRouter();
 
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -64,11 +62,8 @@ export default function DashboardPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fetchDecks = useCallback(async () => {
-    if (!token) return;
     try {
-      const res = await fetch("/api/deck", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch("/api/deck");
       if (res.ok) {
         const data = await res.json();
         setDecks(data.decks ?? []);
@@ -78,7 +73,7 @@ export default function DashboardPage() {
     } finally {
       setLoadingDecks(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchDecks();
@@ -91,7 +86,7 @@ export default function DashboardPage() {
   }
 
   async function handleUpload() {
-    if (!selectedFile || !token) return;
+    if (!selectedFile) return;
 
     setUploading(true);
     setUploadProgress(10);
@@ -105,7 +100,6 @@ export default function DashboardPage() {
 
       const res = await fetch("/api/deck/upload", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 

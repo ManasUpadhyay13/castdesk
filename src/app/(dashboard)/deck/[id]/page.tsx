@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +33,6 @@ const POLL_INTERVAL = 3000;
 
 export default function DeckDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { token } = useAuth();
   const router = useRouter();
 
   const [deck, setDeck] = useState<DeckData | null>(null);
@@ -44,11 +42,9 @@ export default function DeckDetailPage() {
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchSlides = useCallback(async () => {
-    if (!token || !id) return;
+    if (!id) return;
     try {
-      const res = await fetch(`/api/deck/${id}/slides`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/deck/${id}/slides`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Failed to load deck.");
@@ -61,14 +57,12 @@ export default function DeckDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, id]);
+  }, [id]);
 
   const pollStatus = useCallback(async () => {
-    if (!token || !id) return;
+    if (!id) return;
     try {
-      const res = await fetch(`/api/deck/${id}/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/deck/${id}/status`);
       if (!res.ok) return;
       const data = await res.json();
       setDeck((prev) =>
@@ -85,7 +79,7 @@ export default function DeckDetailPage() {
     } catch {
       // ignore poll errors
     }
-  }, [token, id]);
+  }, [id]);
 
   // Initial load
   useEffect(() => {
@@ -93,6 +87,7 @@ export default function DeckDetailPage() {
   }, [fetchSlides]);
 
   // Polling while PROCESSING
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!deck) return;
     if (deck.status !== "PROCESSING") {

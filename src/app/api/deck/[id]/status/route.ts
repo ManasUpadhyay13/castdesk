@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getUserIdFromRequest } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireAuth();
 
   const deck = await db.deck.findFirst({
-    where: { id: params.id, userId },
+    where: { id: params.id, userId: user.id },
     include: {
       slides: {
         select: { id: true, slideNumber: true, scriptText: true, audioUrl: true },

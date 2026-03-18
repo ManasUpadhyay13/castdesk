@@ -1,9 +1,11 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 export async function extractSlideContent(imageBase64: string, slideNumber: number): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       {
@@ -31,7 +33,7 @@ export async function extractSlideContent(imageBase64: string, slideNumber: numb
 }
 
 export async function generateNarrationScript(slideContent: string, slideNumber: number, totalSlides: number): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       {
@@ -62,7 +64,7 @@ export async function generateInvestorResponse(
   conversationHistory: { role: "user" | "assistant"; content: string }[],
   founderMessage: string
 ): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       {
@@ -92,7 +94,7 @@ export async function generateDebriefReport(
     .map((t) => `${t.speaker}: ${t.text}`)
     .join("\n");
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-4o",
     messages: [
       {
