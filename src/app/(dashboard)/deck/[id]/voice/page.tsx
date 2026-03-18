@@ -26,7 +26,7 @@ type VoiceType = "DEFAULT" | "PRESET" | null;
 interface PresetVoice {
   id: string;
   name: string;
-  gender: "Male" | "Female" | "Neutral";
+  gender: "male" | "female" | "neutral";
   style: string;
 }
 
@@ -46,7 +46,7 @@ async function fetchPreviewUrl(voiceId?: string): Promise<string> {
     throw new Error((err as { error?: string }).error ?? "Preview failed.");
   }
   const data = await res.json();
-  return data.url as string;
+  return data.audioUrl as string;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ export default function VoicePage() {
           const res = await fetch("/api/voice/presets");
           if (!res.ok) throw new Error("Failed to load preset voices.");
           const data = await res.json();
-          setPresets(data);
+          setPresets(data.voices ?? data);
         } catch (err) {
           setPresetsError(
             err instanceof Error ? err.message : "Failed to load presets."
@@ -452,9 +452,9 @@ interface PresetVoiceCardProps {
 
 function PresetVoiceCard({ voice, selected, onSelect }: PresetVoiceCardProps) {
   const genderColor =
-    voice.gender === "Male"
+    voice.gender === "male"
       ? "border-blue-800/60 bg-blue-900/30 text-blue-300"
-      : voice.gender === "Female"
+      : voice.gender === "female"
       ? "border-pink-800/60 bg-pink-900/30 text-pink-300"
       : "border-zinc-700 bg-zinc-800/50 text-zinc-400";
 

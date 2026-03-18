@@ -114,7 +114,8 @@ export default function DashboardPage() {
       setUploadProgress(100);
 
       setDialogOpen(false);
-      router.push(`/deck/${data.deck?.id ?? data.id}`);
+      const deckId = data.deck?.id ?? data.id;
+      router.push(`/deck/${deckId}/voice`);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed.");
       setUploadProgress(0);
