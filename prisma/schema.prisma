@@ -4,10 +4,158 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DeckStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum VoiceType {
+  CLONED
+  PRESET
+  DEFAULT
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum Speaker {
+  INVESTOR
+  FOUNDER
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  creditsBalance Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  voices             UserVoice[]
+  decks              Deck[]
+  sessions           Session[]
+  creditTransactions CreditTransaction[]
+}
+
+model UserVoice {
+  id                String   @id @default(cuid())
+  userId            String
+  elevenlabsVoiceId String
+  sampleAudioUrl    String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Deck {
+  id                String     @id @default(cuid())
+  userId            String
+  filename          String
+  totalSlides       Int
+  status            DeckStatus
+  voiceType         VoiceType
+  elevenlabsVoiceId String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slides             Slide[]
+  sessions           Session[]
+  creditTransactions CreditTransaction[]
+
+  @@index([userId])
+}
+
+model Slide {
+  id          String   @id @default(cuid())
+  deckId      String
+  slideNumber Int
+  rawText     String
+  scriptText  String?
+  audioUrl    String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+
+  deck Deck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@index([deckId])
+}
+
+model Session {
+  id        String        @id @default(cuid())
+  deckId    String
+  userId    String
+  personaId String
+  status    SessionStatus
+  startedAt DateTime      @default(now())
+  endedAt   DateTime?
+
+  deck               Deck                @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns              Turn[]
+  report             Report?
+  creditTransactions CreditTransaction[]
+
+  @@index([deckId])
+  @@index([userId])
+}
+
+model Turn {
+  id         String   @id @default(cuid())
+  sessionId  String
+  turnNumber Int
+  speaker    Speaker
+  text       String
+  audioUrl   String?
+  createdAt  DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model Report {
+  id             String   @id @default(cuid())
+  sessionId      String   @unique
+  overallScore   Int
+  weakSlides     Json
+  strongMoments  Json
+  suggestions    Json
+  createdAt      DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model CreditTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  actionType   String
+  creditsUsed  Int
+  deckId       String?
+  sessionId    String?
+  createdAt    DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deck    Deck?    @relation(fields: [deckId], references: [id], onDelete: SetNull)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([deckId])
+  @@index([sessionId])
 }
