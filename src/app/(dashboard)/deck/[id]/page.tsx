@@ -182,6 +182,17 @@ export default function DeckDetailPage() {
               </Link>
             </Button>
             <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            >
+              <Link href={`/deck/${id}/player`}>
+                <Play className="mr-1.5 h-4 w-4" />
+                Slide Player
+              </Link>
+            </Button>
+            <Button
               size="sm"
               className="bg-white text-zinc-900 hover:bg-zinc-200"
               onClick={() => {

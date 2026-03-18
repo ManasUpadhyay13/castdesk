@@ -4,12 +4,13 @@ import { requireAuth } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const user = await requireAuth();
 
   const deck = await db.deck.findFirst({
-    where: { id: params.id, userId: user.id },
+    where: { id: id, userId: user.id },
     include: {
       slides: {
         select: { id: true, slideNumber: true, scriptText: true, audioUrl: true },

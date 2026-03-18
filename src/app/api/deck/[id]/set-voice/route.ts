@@ -5,9 +5,10 @@ import { getDefaultVoiceId } from "@/lib/tts";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await requireAuth();
     const { voiceType, voiceId } = await req.json();
 
@@ -16,7 +17,7 @@ export async function POST(
     }
 
     const deck = await db.deck.findFirst({
-      where: { id: params.id, userId: user.id },
+      where: { id: id, userId: user.id },
     });
 
     if (!deck) {
@@ -28,7 +29,7 @@ export async function POST(
       voiceType === "PRESET" && voiceId ? voiceId : defaultVoice;
 
     await db.deck.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         voiceType: voiceType as "PRESET" | "DEFAULT",
         elevenlabsVoiceId: elevenlabsVoiceId,

@@ -7,12 +7,13 @@ import { CREDIT_COSTS } from "@/types";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; num: string } }
+  { params }: { params: Promise<{ id: string; num: string }> }
 ) {
   try {
+    const { id, num } = await params;
     const user = await requireAuth();
     const admin = isUserAdmin(user);
-    const slideNumber = parseInt(params.num, 10);
+    const slideNumber = parseInt(num, 10);
 
     if (isNaN(slideNumber) || slideNumber < 1) {
       return NextResponse.json({ error: "Invalid slide number" }, { status: 400 });
@@ -27,7 +28,7 @@ export async function PATCH(
     }
 
     const deck = await db.deck.findFirst({
-      where: { id: params.id, userId: user.id },
+      where: { id: id, userId: user.id },
       include: { slides: true },
     });
 

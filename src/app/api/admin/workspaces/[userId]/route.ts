@@ -4,14 +4,15 @@ import { requireAdmin } from "@/lib/auth";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const { userId } = await params;
     await requireAdmin();
     const body = await req.json();
     const { creditsBalance, isAdmin, isBlocked, name } = body;
 
-    const user = await db.user.findUnique({ where: { id: params.userId } });
+    const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -27,7 +28,7 @@ export async function PATCH(
     if (typeof name === "string") updateData.name = name;
 
     const updated = await db.user.update({
-      where: { id: params.userId },
+      where: { id: userId },
       data: updateData,
     });
 
@@ -41,18 +42,19 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const { userId } = await params;
     await requireAdmin();
 
-    const user = await db.user.findUnique({ where: { id: params.userId } });
+    const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Cascade delete handles decks, slides, sessions, turns, reports, transactions
-    await db.user.delete({ where: { id: params.userId } });
+    await db.user.delete({ where: { id: userId } });
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
