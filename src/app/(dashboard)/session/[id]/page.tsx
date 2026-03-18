@@ -23,8 +23,11 @@ import {
   Clock,
   X,
   MessageSquare,
+  Mic,
+  Volume2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VoiceRecorder } from "@/components/session/voice-recorder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,6 +37,7 @@ interface Turn {
   turnNumber: number;
   speaker: "INVESTOR" | "FOUNDER";
   text: string;
+  audioUrl?: string | null;
   createdAt?: string;
 }
 
@@ -126,6 +130,18 @@ function ChatMessage({ turn, personaInitials }: ChatMessageProps) {
         <div className="max-w-[75%]">
           <div className="rounded-2xl rounded-bl-sm border border-zinc-700 bg-zinc-800 px-4 py-3">
             <p className="text-sm leading-relaxed text-zinc-100">{turn.text}</p>
+            {turn.audioUrl && (
+              <button
+                onClick={() => {
+                  const audio = new Audio(turn.audioUrl!);
+                  audio.play();
+                }}
+                className="mt-1 flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"
+              >
+                <Volume2 className="size-3" />
+                Play audio
+              </button>
+            )}
           </div>
           <p className="mt-1 text-[10px] text-zinc-600 ml-1">Investor</p>
         </div>
@@ -167,8 +183,12 @@ export default function SessionPage() {
 
   const [elapsed, setElapsed] = useState("0s");
 
+  const [mode, setMode] = useState<"text" | "voice">("text");
+  const [voiceProcessing, setVoiceProcessing] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const investorAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // ---------------------------------------------------------------------------
   // Load session data
@@ -218,6 +238,16 @@ export default function SessionPage() {
   }, [turns, sending]);
 
   // ---------------------------------------------------------------------------
+  // Cleanup investor audio on unmount
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    return () => {
+      investorAudioRef.current?.pause();
+    };
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Send message
   // ---------------------------------------------------------------------------
 
@@ -259,6 +289,50 @@ export default function SessionPage() {
       handleSend();
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Voice message handler
+  // ---------------------------------------------------------------------------
+
+  const handleVoiceMessage = async (audioBlob: Blob) => {
+    setVoiceProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+
+      const res = await fetch(`/api/session/${id}/voice-message`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to process voice message");
+      }
+
+      const data = await res.json();
+
+      // Add both turns to the chat
+      setTurns((prev) => [
+        ...prev,
+        data.founderTurn,
+        data.investorTurn,
+      ]);
+
+      // Auto-play investor audio if available
+      if (data.investorTurn.audioUrl) {
+        investorAudioRef.current?.pause();
+        const audio = new Audio(data.investorTurn.audioUrl);
+        investorAudioRef.current = audio;
+        audio.play().catch(() => {});
+      }
+    } catch (error) {
+      console.error("Voice message error:", error);
+      // Could add toast here
+    } finally {
+      setVoiceProcessing(false);
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // End session
@@ -401,7 +475,7 @@ export default function SessionPage() {
         ))}
 
         {/* Typing indicator while waiting for investor response */}
-        {sending && <TypingIndicator />}
+        {(sending || voiceProcessing) && <TypingIndicator />}
 
         <div ref={messagesEndRef} />
       </div>
@@ -416,37 +490,69 @@ export default function SessionPage() {
       {/* ── Input area ────────────────────────────────────────────────── */}
       {isSessionActive && (
         <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-4 py-4 sm:px-6">
-          <div className="flex items-end gap-3">
-            <Textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your answer… (Enter to send, Shift+Enter for new line)"
-              disabled={sending || ending}
-              rows={2}
-              className={cn(
-                "flex-1 resize-none border-zinc-700 bg-zinc-900 text-sm text-zinc-100",
-                "placeholder:text-zinc-600 focus-visible:ring-zinc-600",
-                "min-h-[56px] max-h-[160px]"
-              )}
-            />
+          {/* Mode toggle */}
+          <div className="flex items-center gap-1 mb-3">
             <Button
-              size="icon"
-              onClick={handleSend}
-              disabled={!message.trim() || sending || ending}
-              className="h-10 w-10 shrink-0 bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40"
+              variant={mode === "text" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setMode("text")}
+              className="gap-1.5 text-xs"
             >
-              {sending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
+              <MessageSquare className="size-3.5" />
+              Text
+            </Button>
+            <Button
+              variant={mode === "voice" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setMode("voice")}
+              className="gap-1.5 text-xs"
+            >
+              <Mic className="size-3.5" />
+              Voice
             </Button>
           </div>
-          <p className="mt-1.5 text-[10px] text-zinc-700">
-            Enter to send &middot; Shift+Enter for new line
-          </p>
+
+          {mode === "text" ? (
+            <>
+              <div className="flex items-end gap-3">
+                <Textarea
+                  ref={textareaRef}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type your answer… (Enter to send, Shift+Enter for new line)"
+                  disabled={sending || ending}
+                  rows={2}
+                  className={cn(
+                    "flex-1 resize-none border-zinc-700 bg-zinc-900 text-sm text-zinc-100",
+                    "placeholder:text-zinc-600 focus-visible:ring-zinc-600",
+                    "min-h-[56px] max-h-[160px]"
+                  )}
+                />
+                <Button
+                  size="icon"
+                  onClick={handleSend}
+                  disabled={!message.trim() || sending || ending}
+                  className="h-10 w-10 shrink-0 bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40"
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="mt-1.5 text-[10px] text-zinc-700">
+                Enter to send &middot; Shift+Enter for new line
+              </p>
+            </>
+          ) : (
+            <VoiceRecorder
+              onRecordingComplete={handleVoiceMessage}
+              disabled={session.status !== "ACTIVE"}
+              isProcessing={voiceProcessing}
+            />
+          )}
         </div>
       )}
 
