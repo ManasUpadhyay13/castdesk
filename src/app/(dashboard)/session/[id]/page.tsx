@@ -127,8 +127,8 @@ function ChatMessage({ turn, personaInitials }: ChatMessageProps) {
           {personaInitials}
         </div>
         {/* Bubble */}
-        <div className="max-w-[75%]">
-          <div className="rounded-2xl rounded-bl-sm border border-zinc-700 bg-zinc-800 px-4 py-3">
+        <div className="max-w-[80%]">
+          <div className="rounded-2xl rounded-bl-sm border border-zinc-700/80 bg-zinc-800 px-5 py-3.5 shadow-sm">
             <p className="text-sm leading-relaxed text-zinc-100">{turn.text}</p>
             {turn.audioUrl && (
               <button
@@ -143,7 +143,7 @@ function ChatMessage({ turn, personaInitials }: ChatMessageProps) {
               </button>
             )}
           </div>
-          <p className="mt-1 text-[10px] text-zinc-600 ml-1">Investor</p>
+          <p className="mt-1 text-xs text-zinc-500 ml-1">Investor</p>
         </div>
       </div>
     );
@@ -151,11 +151,11 @@ function ChatMessage({ turn, personaInitials }: ChatMessageProps) {
 
   return (
     <div className="flex items-end justify-end gap-3 px-4 py-2">
-      <div className="max-w-[75%]">
-        <div className="rounded-2xl rounded-br-sm border border-primary/20 bg-primary/10 px-4 py-3">
+      <div className="max-w-[80%]">
+        <div className="rounded-2xl rounded-br-sm border border-primary/20 bg-primary/15 px-5 py-3.5">
           <p className="text-sm leading-relaxed text-zinc-100">{turn.text}</p>
         </div>
-        <p className="mt-1 text-right text-[10px] text-zinc-600 mr-1">You</p>
+        <p className="mt-1 text-right text-xs text-zinc-500 mr-1">You</p>
       </div>
     </div>
   );
@@ -403,7 +403,7 @@ export default function SessionPage() {
       <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-4 py-3 sm:px-6">
         {/* Persona info */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-300">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-bold text-zinc-300">
             {personaInfo.initials}
           </div>
           <div className="min-w-0">
@@ -418,7 +418,7 @@ export default function SessionPage() {
 
         {/* Timer + status + end button */}
         <div className="flex shrink-0 items-center gap-3 pl-3">
-          <div className="hidden items-center gap-1.5 sm:flex">
+          <div className="hidden items-center gap-1.5 sm:flex bg-zinc-800/50 px-2.5 py-1 rounded-full">
             <Clock className="h-3.5 w-3.5 text-zinc-500" />
             <span className="text-xs tabular-nums text-zinc-500">{elapsed}</span>
           </div>
@@ -459,7 +459,7 @@ export default function SessionPage() {
       </div>
 
       {/* ── Messages ──────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto bg-zinc-950 py-4">
+      <div className="flex-1 overflow-y-auto bg-zinc-950 py-6">
         {turns.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <p className="text-sm text-zinc-600">Starting conversation…</p>
@@ -489,7 +489,7 @@ export default function SessionPage() {
 
       {/* ── Input area ────────────────────────────────────────────────── */}
       {isSessionActive && (
-        <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-4 py-4 sm:px-6">
+        <div className="shrink-0 border-t border-zinc-800 bg-zinc-950 px-4 py-4 sm:px-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
           {/* Mode toggle */}
           <div className="flex items-center gap-1 mb-3">
             <Button
@@ -525,15 +525,15 @@ export default function SessionPage() {
                   rows={2}
                   className={cn(
                     "flex-1 resize-none border-zinc-700 bg-zinc-900 text-sm text-zinc-100",
-                    "placeholder:text-zinc-600 focus-visible:ring-zinc-600",
-                    "min-h-[56px] max-h-[160px]"
+                    "placeholder:text-zinc-500 focus-visible:ring-zinc-600",
+                    "min-h-[64px] max-h-[160px]"
                   )}
                 />
                 <Button
                   size="icon"
                   onClick={handleSend}
                   disabled={!message.trim() || sending || ending}
-                  className="h-10 w-10 shrink-0 bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40"
+                  className="h-11 w-11 shrink-0 bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40"
                 >
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -547,11 +547,13 @@ export default function SessionPage() {
               </p>
             </>
           ) : (
-            <VoiceRecorder
-              onRecordingComplete={handleVoiceMessage}
-              disabled={session.status !== "ACTIVE"}
-              isProcessing={voiceProcessing}
-            />
+            <div className="py-2">
+              <VoiceRecorder
+                onRecordingComplete={handleVoiceMessage}
+                disabled={session.status !== "ACTIVE"}
+                isProcessing={voiceProcessing}
+              />
+            </div>
           )}
         </div>
       )}

@@ -16,7 +16,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Upload, FileText, ChevronRight, Loader2 } from "lucide-react";
 
-type DeckStatus = "PROCESSING" | "READY" | "FAILED";
+type DeckStatus = "DRAFT" | "PROCESSING" | "READY" | "FAILED";
 
 interface Deck {
   id: string;
@@ -24,27 +24,49 @@ interface Deck {
   totalSlides: number;
   status: DeckStatus;
   createdAt: string;
+  _count?: { sessions: number };
 }
 
-function statusVariant(
-  status: DeckStatus
-): "default" | "secondary" | "destructive" {
-  if (status === "READY") return "default";
-  if (status === "FAILED") return "destructive";
-  return "secondary";
+function statusConfig(status: DeckStatus): {
+  label: string;
+  className: string;
+} {
+  switch (status) {
+    case "DRAFT":
+      return {
+        label: "Draft",
+        className: "bg-amber-900/60 text-amber-400 border-amber-800",
+      };
+    case "READY":
+      return {
+        label: "Ready",
+        className: "bg-emerald-900/60 text-emerald-400 border-emerald-800",
+      };
+    case "PROCESSING":
+      return {
+        label: "Processing",
+        className: "bg-yellow-900/60 text-yellow-400 border-yellow-800",
+      };
+    case "FAILED":
+      return {
+        label: "Failed",
+        className: "bg-red-900/60 text-red-400 border-red-800",
+      };
+  }
 }
 
-function statusLabel(status: DeckStatus): string {
-  if (status === "READY") return "Ready";
-  if (status === "FAILED") return "Failed";
-  return "Processing";
-}
-
-function formatDate(iso: string): string {
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
   });
 }
 
@@ -115,7 +137,7 @@ export default function DashboardPage() {
 
       setDialogOpen(false);
       const deckId = data.deck?.id ?? data.id;
-      router.push(`/deck/${deckId}/voice`);
+      router.push(`/deck/${deckId}`);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed.");
       setUploadProgress(0);
@@ -132,7 +154,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Page header */}
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Your Decks</h1>
@@ -145,15 +167,15 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Deck grid / empty state */}
+      {/* Deck grid / loading / empty state */}
       {loadingDecks ? (
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
         </div>
       ) : decks.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/40 py-24 text-center">
-          <FileText className="mb-4 h-12 w-12 text-zinc-600" />
-          <p className="text-lg font-medium text-zinc-300">No decks yet.</p>
+          <FileText className="mb-4 h-14 w-14 text-zinc-600" />
+          <p className="text-lg font-semibold text-zinc-300">No decks yet</p>
           <p className="mt-1 text-sm text-zinc-500">
             Upload your first pitch deck to get started.
           </p>
@@ -167,50 +189,49 @@ export default function DashboardPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {decks.map((deck) => (
-            <Card
-              key={deck.id}
-              onClick={() => router.push(`/deck/${deck.id}`)}
-              className="group cursor-pointer border-zinc-800 bg-zinc-900 transition-colors hover:border-zinc-600 hover:bg-zinc-800/70"
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileText className="h-5 w-5 shrink-0 text-zinc-400" />
-                    <p className="truncate text-sm font-medium text-white">
-                      {deck.filename}
-                    </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {decks.map((deck) => {
+            const { label, className } = statusConfig(deck.status);
+            const sessionCount = deck._count?.sessions;
+            return (
+              <Card
+                key={deck.id}
+                onClick={() => router.push(`/deck/${deck.id}`)}
+                className="group cursor-pointer border-zinc-800 bg-zinc-900 transition-colors hover:border-zinc-600 hover:bg-zinc-800/70"
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-5 w-5 shrink-0 text-zinc-400" />
+                      <p className="truncate text-sm font-medium text-white">
+                        {deck.filename}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition-colors group-hover:text-zinc-400" />
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600 transition-colors group-hover:text-zinc-400" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs text-zinc-500">
-                      {deck.totalSlides} slide{deck.totalSlides !== 1 ? "s" : ""}
-                    </p>
-                    <p className="text-xs text-zinc-600">
-                      {formatDate(deck.createdAt)}
-                    </p>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-zinc-400">
+                        {deck.totalSlides} slide
+                        {deck.totalSlides !== 1 ? "s" : ""}
+                        {sessionCount !== undefined && sessionCount > 0
+                          ? ` · ${sessionCount} session${sessionCount !== 1 ? "s" : ""}`
+                          : ""}
+                      </p>
+                      <p className="text-xs text-zinc-600">
+                        {relativeTime(deck.createdAt)}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className={className}>
+                      {label}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={statusVariant(deck.status)}
-                    className={
-                      deck.status === "READY"
-                        ? "bg-emerald-900/60 text-emerald-400 border-emerald-800"
-                        : deck.status === "FAILED"
-                        ? "bg-red-900/60 text-red-400 border-red-800"
-                        : "bg-yellow-900/60 text-yellow-400 border-yellow-800"
-                    }
-                  >
-                    {statusLabel(deck.status)}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 

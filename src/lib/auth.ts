@@ -1,5 +1,6 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { isPromoPeriod, PROMO_CREDITS } from "@/lib/constants/promo";
 
 export async function getAuthUserId(): Promise<string | null> {
   const { userId } = await auth();
@@ -13,6 +14,7 @@ export async function getOrCreateUser() {
   let user = await db.user.findUnique({ where: { clerkId: userId } });
   if (!user) {
     const clerkUser = await currentUser();
+    const grantPromo = isPromoPeriod();
     user = await db.user.create({
       data: {
         clerkId: userId,
@@ -20,10 +22,20 @@ export async function getOrCreateUser() {
         name: clerkUser?.firstName
           ? `${clerkUser.firstName}${clerkUser.lastName ? " " + clerkUser.lastName : ""}`
           : "User",
-        creditsBalance: 0,
+        creditsBalance: grantPromo ? PROMO_CREDITS : 0,
         config: { isAdmin: false },
       },
     });
+
+    if (grantPromo) {
+      await db.creditTransaction.create({
+        data: {
+          userId: user.id,
+          actionType: "PROMO_SIGNUP",
+          creditsUsed: -PROMO_CREDITS,
+        },
+      });
+    }
   }
 
   return user;

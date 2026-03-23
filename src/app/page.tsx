@@ -3,17 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import Link from "next/link";
 import { INVESTOR_PERSONAS } from "@/lib/personas";
-import { CREDIT_PACKS } from "@/types";
+import { LandingPricing } from "@/components/landing-pricing";
 import {
   ArrowRight,
   Upload,
   UserCheck,
   Mic2,
-  Zap,
-  CheckCircle2,
-  Sparkles,
 } from "lucide-react";
 import { generateOgMetadata } from "@/lib/metadata";
+import { auth } from "@clerk/nextjs/server";
 
 export const metadata = generateOgMetadata({
   title: "CastDeck — Practice Your Pitch Against AI Investors",
@@ -65,30 +63,31 @@ const HOW_IT_WORKS = [
     icon: Upload,
     title: "Upload Your Deck",
     description:
-      "Drop in your PDF. Our AI extracts every slide, builds a structured summary, and narrates it in your voice — or a preset voice — slide by slide.",
+      "Drop in your PDF. We extract the text from every slide and show it to you for review and approval.",
   },
   {
     step: "02",
     icon: UserCheck,
     title: "Pick Your Investor",
     description:
-      "Choose from 8 distinct investor personas — a YC partner, a Sequoia skeptic, an old-school angel, a deep tech VC, and more. Each has a different attack style.",
+      "Choose from 8 distinct investor personas — a YC partner, a Sequoia skeptic, an old-school angel, and more. Each has a unique attack style.",
   },
   {
     step: "03",
     icon: Mic2,
     title: "Get Grilled",
     description:
-      "Live voice roleplay powered by your actual deck. Every question is based on your real numbers, your market claims, your team slide. No generic questions.",
+      "Live roleplay powered by your actual deck. Every question targets your real numbers, market claims, and team slide. No generic questions.",
   },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function HomePage() {
+export default async function HomePage() {
+  const { userId } = await auth();
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ── Nav ── */}
-      <header className="fixed top-0 inset-x-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="size-7 rounded-md bg-primary flex items-center justify-center">
@@ -119,23 +118,34 @@ export default function HomePage() {
             </a>
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/sign-in">
-              <Button variant="ghost" size="sm" className="text-sm">
-                Sign in
-              </Button>
-            </Link>
-            <Link href="/sign-up">
-              <Button size="sm" className="text-sm">
-                Get Started
-              </Button>
-            </Link>
+            {userId ? (
+              <Link href="/dashboard">
+                <Button size="sm" className="text-sm">
+                  Dashboard
+                  <ArrowRight className="size-4 ml-1" />
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/sign-in">
+                  <Button variant="ghost" size="sm" className="text-sm">
+                    Sign in
+                  </Button>
+                </Link>
+                <Link href="/sign-up">
+                  <Button size="sm" className="text-sm">
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
 
       <main>
         {/* ── Hero ── */}
-        <section className="relative pt-32 pb-24 px-4 sm:px-6 overflow-hidden">
+        <section className="relative pt-24 pb-24 px-4 sm:px-6 overflow-hidden">
           {/* Ambient glow */}
           <div
             aria-hidden
@@ -160,26 +170,25 @@ export default function HomePage() {
             </h1>
 
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground leading-relaxed mb-10 text-balance">
-              Upload your deck. Hear it narrated in your voice. Get grilled by 8
-              distinct investor personas. Walk into the real meeting prepared.
+              Upload your deck. Get grilled by 8 distinct investor personas who
+              attack your real numbers. Walk into the real meeting prepared.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
-              <Link href="/demo">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto gap-2 border-border/60 hover:border-border text-sm font-medium"
-                >
-                  Try Free Demo
-                </Button>
-              </Link>
-              <Link href="/sign-up">
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto gap-2 text-sm font-medium"
-                >
-                  Get Started
+              <Button
+                variant="outline"
+                size="lg"
+                className="relative w-full sm:w-auto gap-2 border-border/60 text-sm font-medium opacity-70 cursor-not-allowed"
+                disabled
+              >
+                Try Free Demo
+                <Badge variant="outline" className="absolute -top-2 -right-2 text-[10px] border-primary/50 bg-background text-primary px-1.5 py-0">
+                  Coming Soon
+                </Badge>
+              </Button>
+              <Link href={userId ? "/dashboard" : "/sign-up"}>
+                <Button size="lg" className="w-full sm:w-auto gap-2 text-sm font-medium">
+                  {userId ? "Go to Dashboard" : "Get Started"}
                   <ArrowRight className="size-4" />
                 </Button>
               </Link>
@@ -363,7 +372,7 @@ export default function HomePage() {
                 return (
                   <Card
                     key={persona.id}
-                    className="group relative border-border/50 bg-card/50 hover:bg-card hover:border-border transition-all duration-200 hover:shadow-lg hover:shadow-black/20 cursor-pointer"
+                    className="group relative border-border/50 bg-card/50 hover:bg-card/80 hover:border-border/80 transition-all duration-200 hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5 cursor-default"
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start gap-3 mb-3">
@@ -428,191 +437,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-              {/* Free Demo tier */}
-              <Card className="relative flex flex-col border border-dashed border-border/50 bg-muted/10 hover:border-border/80 transition-all duration-200">
-                <CardHeader className="pb-4 pt-8">
-                  <div className="mb-1">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      Free Demo
-                    </span>
-                  </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      ₹
-                    </span>
-                    <span className="text-4xl font-bold tracking-tight text-muted-foreground">
-                      0
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Zap className="size-3.5 text-muted-foreground/60" />
-                    <span className="text-sm font-semibold text-muted-foreground/70">
-                      No signup needed
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col flex-1 pt-0 gap-5">
-                  <p className="text-sm text-muted-foreground/80 leading-relaxed">
-                    See what CastDeck can do
-                  </p>
-                  <ul className="space-y-2.5 flex-1">
-                    <li className="flex items-start gap-2 text-sm text-muted-foreground/70">
-                      <CheckCircle2 className="size-4 text-muted-foreground/40 flex-shrink-0 mt-px" />
-                      <span>Pre-loaded sample startup deck</span>
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-muted-foreground/70">
-                      <CheckCircle2 className="size-4 text-muted-foreground/40 flex-shrink-0 mt-px" />
-                      <span>Text-only roleplay (5 turns)</span>
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-muted-foreground/70">
-                      <CheckCircle2 className="size-4 text-muted-foreground/40 flex-shrink-0 mt-px" />
-                      <span>1 investor persona (Marcus Reid)</span>
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-muted-foreground/70">
-                      <CheckCircle2 className="size-4 text-muted-foreground/40 flex-shrink-0 mt-px" />
-                      <span>Blurred debrief report preview</span>
-                    </li>
-                  </ul>
-                  <Link href="/demo" className="w-full">
-                    <Button className="w-full mt-2" variant="outline">
-                      Try Demo
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-
-              {CREDIT_PACKS.map((pack) => {
-                const isPopular = pack.id === "founder";
-                return (
-                  <Card
-                    key={pack.id}
-                    className={`relative flex flex-col border transition-all duration-200 ${
-                      isPopular
-                        ? "border-primary/50 bg-primary/5 shadow-xl shadow-primary/10 scale-[1.02]"
-                        : "border-border/50 bg-card/50 hover:border-border"
-                    }`}
-                  >
-                    {isPopular && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <Badge className="bg-primary text-primary-foreground text-[10px] font-semibold px-3 py-1 shadow-md">
-                          Most Popular
-                        </Badge>
-                      </div>
-                    )}
-
-                    <CardHeader className="pb-4 pt-8">
-                      <div className="mb-1">
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {pack.name}
-                        </span>
-                      </div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          ₹
-                        </span>
-                        <span className="text-4xl font-bold tracking-tight">
-                          {pack.price.toLocaleString("en-IN")}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Zap className="size-3.5 text-primary" />
-                        <span className="text-sm font-semibold text-primary">
-                          {pack.credits.toLocaleString()} credits
-                        </span>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="flex flex-col flex-1 pt-0 gap-5">
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {pack.description}
-                      </p>
-
-                      {/* What you can do with credits */}
-                      <ul className="space-y-2.5 flex-1">
-                        {pack.id === "starter" && (
-                          <>
-                            <CreditLine>
-                              1 full deck upload &amp; narration
-                            </CreditLine>
-                            <CreditLine>
-                              1 roleplay session with any persona
-                            </CreditLine>
-                            <CreditLine>Basic feedback report</CreditLine>
-                          </>
-                        )}
-                        {pack.id === "founder" && (
-                          <>
-                            <CreditLine>
-                              4 deck uploads with narration
-                            </CreditLine>
-                            <CreditLine>
-                              4 roleplay sessions across personas
-                            </CreditLine>
-                            <CreditLine>
-                              Voice cloning (your own voice)
-                            </CreditLine>
-                            <CreditLine>
-                              Detailed feedback &amp; transcripts
-                            </CreditLine>
-                          </>
-                        )}
-                        {pack.id === "studio" && (
-                          <>
-                            <CreditLine>
-                              10+ deck uploads &amp; narrations
-                            </CreditLine>
-                            <CreditLine>10+ roleplay sessions</CreditLine>
-                            <CreditLine>
-                              Voice cloning &amp; preset voices
-                            </CreditLine>
-                            <CreditLine>
-                              Team access &amp; coach dashboard
-                            </CreditLine>
-                            <CreditLine>Priority processing</CreditLine>
-                          </>
-                        )}
-                      </ul>
-
-                      <Link href="/sign-up" className="w-full">
-                        <Button
-                          className={`w-full mt-2 ${
-                            isPopular
-                              ? ""
-                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                          }`}
-                          variant={isPopular ? "default" : "secondary"}
-                        >
-                          Get {pack.credits} credits
-                        </Button>
-                      </Link>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            {/* Credit cost reference */}
-            <div className="mt-10 rounded-xl border border-border/40 bg-muted/20 px-6 py-5">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4 text-center">
-                What do credits cost?
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                {[
-                  { action: "Deck upload + narration", cost: "60 credits" },
-                  { action: "Roleplay session", cost: "80 credits" },
-                  { action: "Voice clone", cost: "40 credits" },
-                  { action: "Slide regenerate", cost: "5 credits" },
-                ].map(({ action, cost }) => (
-                  <div key={action} className="space-y-1">
-                    <div className="text-sm font-semibold">{cost}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {action}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <LandingPricing />
           </div>
         </section>
 
@@ -633,16 +458,18 @@ export default function HomePage() {
               you. Neither will ours. That&apos;s the point.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/demo">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto border-border/60"
-                >
-                  Try Free Demo
-                </Button>
-              </Link>
-              <Link href="/sign-up">
+              <Button
+                variant="outline"
+                size="lg"
+                className="relative w-full sm:w-auto gap-2 border-border/60 text-sm font-medium opacity-70 cursor-not-allowed"
+                disabled
+              >
+                Try Free Demo
+                <Badge variant="outline" className="absolute -top-2 -right-2 text-[10px] border-primary/50 bg-background text-primary px-1.5 py-0">
+                  Coming Soon
+                </Badge>
+              </Button>
+              <Link href={userId ? "/dashboard" : "/sign-up"}>
                 <Button size="lg" className="w-full sm:w-auto gap-2">
                   Start Practicing
                   <ArrowRight className="size-4" />
@@ -669,15 +496,5 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
-  );
-}
-
-// ── Small helper ──────────────────────────────────────────────────────────────
-function CreditLine({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="flex items-start gap-2 text-sm text-muted-foreground">
-      <CheckCircle2 className="size-4 text-primary flex-shrink-0 mt-px" />
-      <span>{children}</span>
-    </li>
   );
 }

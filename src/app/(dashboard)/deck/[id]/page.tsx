@@ -1,33 +1,51 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, Pause, Mic, Users, Loader2, ChevronRight, Volume2 } from "lucide-react";
-import Link from "next/link";
-
-type DeckStatus = "PROCESSING" | "READY" | "FAILED";
+import { CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
+import { INVESTOR_PERSONAS } from "@/lib/personas";
 
 interface Slide {
   id: string;
   slideNumber: number;
   rawText: string;
-  scriptText: string | null;
-  audioUrl: string | null;
 }
 
 interface DeckInfo {
   id: string;
   filename: string;
-  status: DeckStatus;
-  voiceType: string;
+  status: string;
 }
 
-const POLL_INTERVAL = 3000;
+const PERSONA_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  "marcus-reid": { bg: "bg-violet-500/20", text: "text-violet-400", border: "border-violet-500/30" },
+  "victoria-cross": { bg: "bg-blue-500/20", text: "text-blue-400", border: "border-blue-500/30" },
+  "james-whitfield": { bg: "bg-amber-500/20", text: "text-amber-400", border: "border-amber-500/30" },
+  "sandra-blake": { bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/30" },
+  "oliver-strauss": { bg: "bg-cyan-500/20", text: "text-cyan-400", border: "border-cyan-500/30" },
+  "rachel-monroe": { bg: "bg-pink-500/20", text: "text-pink-400", border: "border-pink-500/30" },
+  "daniel-park": { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/30" },
+  "sophia-laurent": { bg: "bg-teal-500/20", text: "text-teal-400", border: "border-teal-500/30" },
+};
+
+const WIZARD_STEPS = [
+  { num: 1, label: "Review Text" },
+  { num: 2, label: "Pick Persona" },
+  { num: 3, label: "Start Session" },
+] as const;
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function DeckDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,17 +53,15 @@ export default function DeckDetailPage() {
 
   const [deck, setDeck] = useState<DeckInfo | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [approving, setApproving] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [playingSlideId, setPlayingSlideId] = useState<string | null>(null);
 
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Fetch full slide data
   const fetchData = useCallback(async () => {
-    if (!id) return null;
+    if (!id) return;
     try {
       const res = await fetch(`/api/deck/${id}/slides`);
       if (!res.ok) {
@@ -53,118 +69,67 @@ export default function DeckDetailPage() {
         throw new Error(err.error ?? "Failed to load deck.");
       }
       const data = await res.json();
-      // Response shape: { deck: {...}, slides: [...] }
       setDeck(data.deck);
       setSlides(data.slides ?? []);
-      return data.deck.status as DeckStatus;
+      if (data.deck.status === "READY") {
+        setStep(2);
+      } else {
+        setStep(1);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load deck.");
-      return null;
     } finally {
       setLoading(false);
     }
   }, [id]);
 
-  // Initial load
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Poll while PROCESSING
-  useEffect(() => {
-    if (!deck || deck.status !== "PROCESSING") {
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-      return;
-    }
-
-    const poll = async () => {
-      const status = await fetchData();
-      if (status === "PROCESSING") {
-        pollTimerRef.current = setTimeout(poll, POLL_INTERVAL);
-      }
-    };
-
-    pollTimerRef.current = setTimeout(poll, POLL_INTERVAL);
-
-    return () => {
-      if (pollTimerRef.current) {
-        clearTimeout(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
-    };
-  }, [deck?.status, fetchData]);
-
-  // Generate narration scripts (text only, no audio)
-  const handleGenerateScripts = async () => {
+  const handleApproveDeck = async () => {
     if (!id) return;
-    setGenerating(true);
+    setApproving(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/deck/${id}/generate-scripts`, { method: "POST" });
+      const res = await fetch(`/api/deck/${id}/approve`, { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to start script generation");
+        throw new Error(err.error ?? "Failed to approve deck.");
       }
-      await fetchData();
+      setStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate scripts");
+      setError(err instanceof Error ? err.message : "Failed to approve deck.");
     } finally {
-      setGenerating(false);
+      setApproving(false);
     }
   };
 
-  // Start audio narration generation
-  const handleGenerateAudio = async () => {
-    if (!id) return;
-    setGenerating(true);
+  const handleSelectPersona = (personaId: string) => {
+    setSelectedPersonaId(personaId);
+  };
+
+  const handleStartSession = async () => {
+    if (!id || !selectedPersonaId) return;
+    setStarting(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/deck/${id}/narrate`, { method: "POST" });
+      const res = await fetch("/api/session/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckId: id, personaId: selectedPersonaId }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to start narration");
+        throw new Error(err.error ?? "Failed to start session.");
       }
-      // Refresh to pick up PROCESSING status
-      await fetchData();
+      const data = await res.json();
+      router.push(`/session/${data.session.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start narration");
-    } finally {
-      setGenerating(false);
+      setError(err instanceof Error ? err.message : "Failed to start session.");
+      setStarting(false);
     }
   };
-
-  // Play/stop audio
-  const handlePlay = (slide: Slide) => {
-    if (!slide.audioUrl) return;
-
-    if (playingSlideId === slide.id) {
-      // Stop current
-      audioRef.current?.pause();
-      audioRef.current = null;
-      setPlayingSlideId(null);
-      return;
-    }
-
-    // Stop previous
-    audioRef.current?.pause();
-
-    const audio = new Audio(slide.audioUrl);
-    audio.onended = () => {
-      setPlayingSlideId(null);
-      audioRef.current = null;
-    };
-    audio.play();
-    audioRef.current = audio;
-    setPlayingSlideId(slide.id);
-  };
-
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-    };
-  }, []);
 
   if (loading) {
     return (
@@ -174,10 +139,10 @@ export default function DeckDetailPage() {
     );
   }
 
-  if (error || !deck) {
+  if (error && !deck) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
-        <p className="text-zinc-400">{error ?? "Deck not found."}</p>
+        <p className="text-zinc-400">{error}</p>
         <Button
           variant="outline"
           onClick={() => router.push("/dashboard")}
@@ -189,22 +154,27 @@ export default function DeckDetailPage() {
     );
   }
 
-  const slidesWithScript = slides.filter((s) => s.scriptText);
-  const slidesWithAudio = slides.filter((s) => s.audioUrl);
-  const hasScripts = slidesWithScript.length > 0;
-  const hasAllAudio = slidesWithAudio.length === slides.length && slides.length > 0;
-  const isProcessing = deck.status === "PROCESSING";
+  if (!deck) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
+        <p className="text-zinc-400">Deck not found.</p>
+        <Button
+          variant="outline"
+          onClick={() => router.push("/dashboard")}
+          className="mt-4 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+        >
+          Back to Dashboard
+        </Button>
+      </div>
+    );
+  }
 
-  // During audio generation (hasScripts already), track audio progress; otherwise track script progress
-  const processingProgress =
-    slides.length > 0
-      ? hasScripts
-        ? Math.round((slidesWithAudio.length / slides.length) * 100)
-        : Math.round((slidesWithScript.length / slides.length) * 100)
-      : 0;
+  const selectedPersona = selectedPersonaId
+    ? INVESTOR_PERSONAS.find((p) => p.id === selectedPersonaId)
+    : null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       {/* Breadcrumb */}
       <div className="mb-6 flex items-center gap-1.5 text-sm text-zinc-500">
         <button
@@ -214,268 +184,247 @@ export default function DeckDetailPage() {
           Dashboard
         </button>
         <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-zinc-300 truncate max-w-xs">{deck.filename}</span>
+        <span className="truncate max-w-xs text-zinc-300">{deck.filename}</span>
       </div>
 
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white break-words">
-            {deck.filename}
-          </h1>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            {slides.length} slide{slides.length !== 1 ? "s" : ""}
-          </p>
-        </div>
+      {/* Step Indicator */}
+      <div className="mb-8 flex items-center gap-2">
+        {WIZARD_STEPS.map((s, idx) => {
+          const isActive = step === s.num;
+          const isCompleted = step > s.num;
+          const isClickable = isCompleted;
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {/* No scripts yet — show Generate Scripts button */}
-          {!hasScripts && !isProcessing && (
-            <Button
-              size="sm"
-              onClick={handleGenerateScripts}
-              disabled={generating}
-              className="bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40"
-            >
-              {generating ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : null}
-              Generate Scripts
-            </Button>
-          )}
-
-          {/* Scripts exist — show Choose Voice + Generate Audio */}
-          {hasScripts && !hasAllAudio && !isProcessing && (
-            <>
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          return (
+            <div key={s.num} className="flex items-center gap-2">
+              <button
+                onClick={() => isClickable && setStep(s.num as 1 | 2 | 3)}
+                disabled={!isClickable}
+                className={[
+                  "flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-white text-zinc-900"
+                    : isCompleted
+                    ? "cursor-pointer bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    : "cursor-default bg-zinc-900 text-zinc-600",
+                ].join(" ")}
               >
-                <Link href={`/deck/${id}/voice`}>
-                  <Mic className="mr-1.5 h-4 w-4" />
-                  Choose Voice
-                </Link>
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleGenerateAudio}
-                disabled={generating}
-                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-              >
-                {generating ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                {isCompleted ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
                 ) : (
-                  <Volume2 className="mr-1.5 h-4 w-4" />
+                  <span
+                    className={[
+                      "flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold",
+                      isActive ? "bg-zinc-900 text-white" : "bg-zinc-700 text-zinc-500",
+                    ].join(" ")}
+                  >
+                    {s.num}
+                  </span>
                 )}
-                Generate Audio
+                {s.label}
+              </button>
+              {idx < WIZARD_STEPS.length - 1 && (
+                <ChevronRight className="h-4 w-4 text-zinc-700" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Error banner (non-fatal) */}
+      {error && deck && (
+        <div className="mb-6 rounded-lg border border-red-800/60 bg-red-900/20 px-4 py-3">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Step 1: Review Text */}
+      {step === 1 && (
+        <div>
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-white">Review Extracted Text</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Check that the text was extracted correctly from your PDF, then approve to continue.
+            </p>
+          </div>
+
+          <ScrollArea className="max-h-[60vh] pr-1">
+            <div className="space-y-3 pb-2">
+              {slides.map((slide) => (
+                <Card key={slide.id} className="border-zinc-800 bg-zinc-900/40">
+                  <CardContent className="px-4 py-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      Slide {slide.slideNumber}
+                    </p>
+                    {slide.rawText ? (
+                      <textarea
+                        defaultValue={slide.rawText}
+                        readOnly
+                        rows={4}
+                        className="w-full resize-y rounded-lg border border-zinc-700/50 bg-zinc-800/40 px-3 py-2 text-sm leading-relaxed text-zinc-300 focus:outline-none focus:border-zinc-600"
+                      />
+                    ) : (
+                      <p className="text-sm italic text-zinc-600">No text extracted</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+              {slides.length === 0 && (
+                <div className="rounded-xl border border-dashed border-zinc-800 py-12 text-center">
+                  <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-zinc-600" />
+                  <p className="text-sm text-zinc-500">Processing your deck…</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          {slides.length > 0 && (
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={handleApproveDeck}
+                disabled={approving}
+                className="bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40"
+              >
+                {approving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {approving ? "Approving…" : "Approve Deck"}
               </Button>
-            </>
-          )}
-
-          {/* All audio ready — show Slide Player */}
-          {hasAllAudio && (
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-            >
-              <Link href={`/deck/${id}/player`}>
-                <Play className="mr-1.5 h-4 w-4" />
-                Slide Player
-              </Link>
-            </Button>
-          )}
-
-          {/* Start Roleplay — available whenever scripts exist (text roleplay doesn't need audio) */}
-          {hasScripts && !isProcessing && (
-            <Button
-              asChild
-              size="sm"
-              className="bg-white text-zinc-900 hover:bg-zinc-200"
-            >
-              <Link href={`/deck/${id}/roleplay`}>
-                <Users className="mr-1.5 h-4 w-4" />
-                Start Roleplay
-              </Link>
-            </Button>
+            </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Processing state */}
-      {isProcessing && (
-        <Card className="mb-6 border-yellow-800/60 bg-yellow-900/20">
-          <CardContent className="py-6">
-            <div className="mb-3 flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
-              <p className="text-sm font-medium text-yellow-300">
-                {hasScripts
-                  ? `Generating audio — ${slidesWithAudio.length}/${slides.length} slides…`
-                  : `Generating scripts — ${slidesWithScript.length}/${slides.length} slides…`}
-              </p>
+      {/* Step 2: Pick Persona */}
+      {step === 2 && (
+        <div>
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-white">Pick Your Investor</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Choose an investor persona to practice against. Each has a distinct style and attack vector.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {INVESTOR_PERSONAS.map((persona) => {
+              const colors = PERSONA_COLORS[persona.id] ?? {
+                bg: "bg-zinc-500/20",
+                text: "text-zinc-400",
+                border: "border-zinc-500/30",
+              };
+              const isSelected = selectedPersonaId === persona.id;
+
+              return (
+                <button
+                  key={persona.id}
+                  onClick={() => handleSelectPersona(persona.id)}
+                  className={[
+                    "group flex flex-col items-start rounded-xl border p-4 text-left transition-all hover:border-zinc-600 hover:bg-zinc-800/60",
+                    isSelected
+                      ? `${colors.border} ${colors.bg} ring-1 ring-offset-0`
+                      : "border-zinc-800 bg-zinc-900/40",
+                  ].join(" ")}
+                >
+                  {/* Initials Avatar */}
+                  <div
+                    className={[
+                      "mb-3 flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold",
+                      colors.bg,
+                      colors.text,
+                    ].join(" ")}
+                  >
+                    {getInitials(persona.name)}
+                  </div>
+
+                  {/* Name & Title */}
+                  <p className="text-sm font-semibold text-white leading-tight">{persona.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500 leading-tight">{persona.title}</p>
+
+                  {/* Label Badge */}
+                  <Badge
+                    className={[
+                      "mt-2 border text-xs",
+                      colors.bg,
+                      colors.text,
+                      colors.border,
+                    ].join(" ")}
+                  >
+                    {persona.label}
+                  </Badge>
+
+                  {/* First attack as description */}
+                  <p className="mt-2 text-xs text-zinc-500 line-clamp-2 leading-snug">
+                    {persona.attacks[0]}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedPersonaId && (
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={() => setStep(3)}
+                className="bg-white text-zinc-900 hover:bg-zinc-200"
+              >
+                Continue
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
             </div>
-            <Progress
-              value={processingProgress}
-              className="h-2 bg-yellow-900/40"
-            />
-            <p className="mt-2 text-xs text-yellow-600">
-              This may take a few minutes. The page updates automatically.
-            </p>
-          </CardContent>
-        </Card>
+          )}
+        </div>
       )}
 
-      {/* Failed state */}
-      {deck.status === "FAILED" && (
-        <Card className="mb-6 border-red-800/60 bg-red-900/20">
-          <CardContent className="py-5">
-            <p className="text-sm font-medium text-red-400">
-              Processing failed. You can try generating audio again.
+      {/* Step 3: Start Session */}
+      {step === 3 && (
+        <div>
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-white">Ready to Begin</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Review the session details below and hit Start Session.
             </p>
-          </CardContent>
-        </Card>
-      )}
+          </div>
 
-      {/* Status badge */}
-      <div className="mb-4 flex items-center gap-2">
-        <Badge
-          className={
-            deck.status === "PROCESSING"
-              ? "bg-yellow-900/60 text-yellow-400 border-yellow-800"
-              : deck.status === "FAILED"
-              ? "bg-red-900/60 text-red-400 border-red-800"
-              : hasAllAudio
-              ? "bg-emerald-900/60 text-emerald-400 border-emerald-800"
-              : hasScripts
-              ? "bg-blue-900/60 text-blue-400 border-blue-800"
-              : "bg-zinc-800/60 text-zinc-400 border-zinc-700"
-          }
-        >
-          {deck.status === "PROCESSING"
-            ? "Processing"
-            : deck.status === "FAILED"
-            ? "Failed"
-            : hasAllAudio
-            ? "Ready"
-            : hasScripts
-            ? "Scripts Ready"
-            : "Review Text"}
-        </Badge>
-        {hasScripts && (
-          <span className="text-xs text-zinc-500">
-            {slidesWithAudio.length}/{slides.length} audio generated
-          </span>
-        )}
-      </div>
-
-      {/* Raw text review — shown when no scripts exist and not processing */}
-      {!hasScripts && !isProcessing && slides.length > 0 && (
-        <div className="mb-6">
-          <Card className="mb-4 border-blue-800/60 bg-blue-900/20">
-            <CardContent className="py-4 px-5">
-              <p className="text-sm text-blue-300">
-                We&apos;ve extracted text from your PDF. Review it below and click{" "}
-                <span className="font-semibold">Generate Scripts</span> when ready.
-              </p>
+          <Card className="mb-6 border-zinc-800 bg-zinc-900/40">
+            <CardContent className="divide-y divide-zinc-800 px-0 py-0">
+              <div className="flex items-center justify-between px-5 py-4">
+                <span className="text-sm text-zinc-500">Deck</span>
+                <span className="text-sm font-medium text-zinc-200 truncate max-w-xs text-right">
+                  {deck.filename}
+                </span>
+              </div>
+              <div className="flex items-center justify-between px-5 py-4">
+                <span className="text-sm text-zinc-500">Slides</span>
+                <span className="text-sm font-medium text-zinc-200">
+                  {slides.length} slide{slides.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              {selectedPersona && (
+                <div className="flex items-center justify-between px-5 py-4">
+                  <span className="text-sm text-zinc-500">Investor</span>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-zinc-200">{selectedPersona.name}</p>
+                    <p className="text-xs text-zinc-500">{selectedPersona.title}</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <div className="space-y-3">
-            {slides.map((slide) => (
-              <Card key={slide.id} className="border-zinc-800 bg-zinc-900/40">
-                <CardContent className="px-4 py-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                    Slide {slide.slideNumber}
-                  </p>
-                  <textarea
-                    defaultValue={slide.rawText}
-                    rows={3}
-                    className="w-full resize-y rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
-                  />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <div className="mt-4 flex justify-end">
+          <div className="flex gap-3">
             <Button
-              onClick={handleGenerateScripts}
-              disabled={generating}
+              variant="outline"
+              onClick={() => setStep(2)}
+              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            >
+              Change Investor
+            </Button>
+            <Button
+              onClick={handleStartSession}
+              disabled={starting || !selectedPersonaId}
               className="bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-40"
             >
-              {generating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              {generating ? "Generating…" : "Approve & Generate Scripts"}
+              {starting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {starting ? "Starting…" : "Start Session"}
             </Button>
           </div>
-        </div>
-      )}
-
-      {/* Slide list — shown when scripts exist */}
-      {hasScripts && slides.length > 0 && (
-        <ScrollArea className="rounded-xl border border-zinc-800">
-          <div className="divide-y divide-zinc-800">
-            {slides.map((slide) => (
-              <div
-                key={slide.id}
-                className="flex items-start gap-4 px-4 py-4 hover:bg-zinc-900/50 transition-colors"
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-semibold text-zinc-400">
-                  {slide.slideNumber}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  {slide.scriptText ? (
-                    <p className="line-clamp-2 text-sm text-zinc-300">
-                      {slide.scriptText}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-zinc-600 italic">
-                      Generating script…
-                    </p>
-                  )}
-                  {slide.audioUrl && (
-                    <span className="mt-1 inline-block text-xs text-emerald-500">
-                      Audio ready
-                    </span>
-                  )}
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled={!slide.audioUrl}
-                  className="shrink-0 text-zinc-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                  onClick={() => handlePlay(slide)}
-                  title={
-                    !slide.audioUrl
-                      ? "No audio yet"
-                      : playingSlideId === slide.id
-                      ? "Stop"
-                      : "Play"
-                  }
-                >
-                  {playingSlideId === slide.id ? (
-                    <Pause className="h-4 w-4 fill-current" />
-                  ) : (
-                    <Play className="h-4 w-4 fill-current" />
-                  )}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      )}
-
-      {slides.length === 0 && (
-        <div className="rounded-xl border border-dashed border-zinc-800 py-16 text-center">
-          <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-zinc-600" />
-          <p className="text-sm text-zinc-500">Processing your deck…</p>
         </div>
       )}
     </div>

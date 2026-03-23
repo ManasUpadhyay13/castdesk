@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         filename,
         totalSlides,
-        status: "READY",
+        status: "DRAFT",
         voiceType: "DEFAULT",
       },
     });

@@ -1,18 +1,13 @@
 import DodoPayments from "dodopayments";
+import { CREDIT_PACKS } from "@/types";
+
+export type CreditPackId = (typeof CREDIT_PACKS)[number]["id"];
 
 function getClient() {
   return new DodoPayments({
     bearerToken: process.env.DODO_PAYMENTS_API_KEY,
   });
 }
-
-export const CREDIT_PACKS = [
-  { id: "starter", name: "Starter", price: 499, credits: 100, currency: "INR" },
-  { id: "founder", name: "Founder", price: 1499, credits: 400, currency: "INR" },
-  { id: "studio", name: "Studio", price: 3499, credits: 1200, currency: "INR" },
-] as const;
-
-export type CreditPackId = (typeof CREDIT_PACKS)[number]["id"];
 
 export function getPackById(packId: string) {
   return CREDIT_PACKS.find((p) => p.id === packId);

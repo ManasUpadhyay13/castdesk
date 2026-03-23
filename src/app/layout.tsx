@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ClerkProvider } from "@clerk/nextjs";
 import { generateOgMetadata } from "@/lib/metadata";
 import { PostHogProvider, PostHogIdentify } from "@/lib/posthog";
+import { PromoBanner } from "@/components/promo-banner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -35,6 +36,7 @@ export default function RootLayout({
             inter.variable
           )}
         >
+          <PromoBanner />
           {/* <PostHogProvider> */}
           <PostHogIdentify />
           {children}
