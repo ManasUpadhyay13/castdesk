@@ -1,21 +1,22 @@
 # CastDeck
 
-AI-powered pitch practice platform for startup founders. Upload your pitch deck, get it narrated in your voice, then get grilled by AI investor personas who've actually read your deck.
+AI-powered pitch practice platform for startup founders. Upload your pitch deck, review the extracted text, then get grilled by 8 distinct AI investor personas who've actually read your deck.
 
 ## What it does
 
-1. **Upload your pitch deck** — PDF upload, AI extracts and summarizes every slide
-2. **AI narration** — Each slide gets a narration script, voiced by your cloned voice or a preset AI voice (ElevenLabs)
-3. **Live investor roleplay** — Voice-based Q&A with 8 distinct AI investor personas, each with unique attack styles
-4. **Debrief report** — Readiness score, weak slides flagged, specific improvement suggestions
+1. **Upload your pitch deck** — PDF upload, text extracted from every slide
+2. **Review & approve** — See the extracted text, verify it looks right
+3. **Pick your investor** — Choose from 8 AI personas, each with a unique attack style
+4. **Live roleplay** — Text-based Q&A where the investor challenges your real numbers, claims, and assumptions
+5. **Debrief report** — Readiness score, weak slides flagged, specific improvement suggestions
 
 ## Tech Stack
 
-- **Frontend:** Next.js 14, TypeScript, Tailwind CSS, Shadcn UI
+- **Frontend:** Next.js 15, React 19, TypeScript, Tailwind CSS, shadcn/ui
 - **Auth:** Clerk
 - **Database:** PostgreSQL + Prisma ORM
-- **AI:** OpenAI GPT-4o (narration + personas), ElevenLabs (TTS + voice cloning), Whisper (speech-to-text)
-- **Payments:** Dodo Payments (credit-based)
+- **AI:** OpenAI GPT-4o (persona responses + analysis), Whisper (speech-to-text)
+- **Payments:** Dodo Payments (credit-based, INR + USD)
 - **Analytics:** PostHog
 
 ## Getting Started
@@ -26,7 +27,6 @@ AI-powered pitch practice platform for startup founders. Upload your pitch deck,
 - PostgreSQL database
 - Clerk account (for auth)
 - OpenAI API key
-- ElevenLabs API key (for voice features)
 
 ### Setup
 
@@ -60,53 +60,70 @@ AI-powered pitch practice platform for startup founders. Upload your pitch deck,
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | `/sign-in` |
 | `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | `/sign-up` |
 | `OPENAI_API_KEY` | OpenAI API key |
-| `ELEVENLABS_API_KEY` | ElevenLabs API key |
+| `DODO_PAYMENTS_API_KEY` | Dodo Payments API key |
 
 ## Investor Personas
 
 | Persona | Style | Core Attack |
 |---------|-------|-------------|
 | Marcus Reid — YC Partner | Terse, Socratic | "Why now?" three levels deep |
-| Victoria Cross — Sequoia Skeptic | Analytical | Bottom-up TAM destruction |
+| Victoria Cross — Sequoia Skeptic | Analytical, data-driven | Bottom-up TAM destruction |
 | James Whitfield — Angel | Warm but surgical | Founder story, resilience |
 | Sandra Blake — The Shark | Blunt, impatient | Revenue, CAC/LTV, burn rate |
-| Oliver Strauss — Deep Tech VC | Curious, technical | Architecture deep-dive |
-| Rachel Monroe — Consumer VC | High energy | Brand, retention, emotional job |
-| Daniel Park — Revenue-Only | Skeptical | "Show me an invoice" |
-| Sophia Laurent — Impact VC | Mission-driven | "Who loses if you win?" |
+| Oliver Strauss — Deep Tech VC | Curious, technically precise | Architecture deep-dive |
+| Rachel Monroe — Consumer VC | High energy, narrative-obsessed | Brand, retention, emotional job |
+| Daniel Park — Revenue-Only | Polite but immovable | "Show me an invoice" |
+| Sophia Laurent — Impact VC | Mission-driven, systems thinker | "Who loses if you win?" |
 
 ## Credit System
 
 | Action | Credits |
 |--------|---------|
-| Deck upload + narration | 60 |
-| Roleplay session (20 min) | 80 |
-| Voice cloning | 40 |
-| Slide regeneration | 5 |
+| Deck upload | 60 |
+| Roleplay session | Free |
+| Debrief report | Free |
 
-**Packs:** Starter ₹499 (100 credits) · Founder ₹1,499 (400 credits) · Studio ₹3,499 (1,200 credits)
+**Packs:** Starter ₹499/$5 (100 credits) · Founder ₹1,499/$15 (400 credits) · Studio ₹3,499/$39 (1,200 credits)
+
+Pricing auto-detects INR/USD based on user timezone, with a manual currency toggle.
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── (admin)/          # Admin panel
-│   ├── (auth)/           # Clerk sign-in/sign-up
-│   ├── (dashboard)/      # Main app (dashboard, deck viewer)
-│   ├── api/              # API routes
-│   └── page.tsx          # Landing page
+│   ├── (admin)/              # Admin panel
+│   ├── (auth)/               # Clerk sign-in/sign-up
+│   ├── (dashboard)/          # Main app
+│   │   ├── dashboard/        # Deck list + upload
+│   │   ├── deck/[id]/        # 3-step wizard (review → persona → start)
+│   │   ├── session/[id]/     # Live chat session
+│   │   ├── report/[id]/      # Debrief report
+│   │   └── credits/          # Credit balance + purchase
+│   ├── api/                  # API routes
+│   │   ├── deck/             # Upload, approve, slides
+│   │   ├── session/          # Start, message, end
+│   │   ├── credits/          # Balance, purchase, webhook
+│   │   └── report/           # Session report
+│   └── page.tsx              # Landing page
 ├── components/
-│   ├── layout/           # Navbar
-│   └── ui/               # Shadcn components
+│   ├── landing-pricing.tsx   # Geo-detected pricing component
+│   ├── promo-banner.tsx      # Dismissible promo banner
+│   ├── layout/               # Dashboard navbar
+│   ├── session/              # Voice recorder
+│   └── ui/                   # shadcn components
 ├── lib/
-│   ├── ai.ts             # OpenAI integration
-│   ├── auth.ts           # Clerk auth helpers
-│   ├── db.ts             # Prisma client
-│   ├── pdf.ts            # PDF processing
-│   └── personas.ts       # 8 investor persona definitions
+│   ├── ai.ts                 # OpenAI GPT-4o integration
+│   ├── auth.ts               # Clerk auth helpers + promo credits
+│   ├── constants/
+│   │   ├── persona-prompts.ts # Rich system prompts for all 8 personas
+│   │   └── promo.ts          # Promo period config
+│   ├── db.ts                 # Prisma client
+│   ├── payments.ts           # Dodo Payments integration
+│   ├── pdf.ts                # PDF text extraction
+│   └── personas.ts           # Persona metadata + prompt references
 └── types/
-    └── index.ts          # Shared types + credit constants
+    └── index.ts              # Shared types, credit costs, pricing packs
 ```
 
 ## License
