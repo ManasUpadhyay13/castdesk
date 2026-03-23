@@ -43,12 +43,14 @@ export function Navbar() {
             </Link>
           )}
 
-          <Badge variant="secondary" className="gap-1.5 px-2.5 py-1 text-xs font-medium">
-            <Coins className="size-3.5 text-primary" />
-            {credits !== null ? credits.toLocaleString() : (
-              <Loader2 className="size-3 animate-spin" />
-            )}
-          </Badge>
+          <Link href="/credits">
+            <Badge variant="secondary" className="gap-1.5 px-2.5 py-1 text-xs font-medium cursor-pointer hover:bg-secondary/80">
+              <Coins className="size-3.5 text-primary" />
+              {credits !== null ? credits.toLocaleString() : (
+                <Loader2 className="size-3 animate-spin" />
+              )}
+            </Badge>
+          </Link>
 
           <UserButton
             appearance={{
