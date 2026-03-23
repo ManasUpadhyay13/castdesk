@@ -41,7 +41,7 @@ model User {
   email          String
   name           String
   config         Json     @default("{}")
-  creditsBalance Int      @default(0)
+  creditsBalance Int      @default(200)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -132,25 +132,25 @@ model Turn {
 }
 
 model Report {
-  id             String   @id @default(cuid())
-  sessionId      String   @unique
-  overallScore   Int
-  weakSlides     Json
-  strongMoments  Json
-  suggestions    Json
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  sessionId     String   @unique
+  overallScore  Int
+  weakSlides    Json
+  strongMoments Json
+  suggestions   Json
+  createdAt     DateTime @default(now())
 
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }
 
 model CreditTransaction {
-  id           String   @id @default(cuid())
-  userId       String
-  actionType   String
-  creditsUsed  Int
-  deckId       String?
-  sessionId    String?
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  actionType  String
+  creditsUsed Int
+  deckId      String?
+  sessionId   String?
+  createdAt   DateTime @default(now())
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   deck    Deck?    @relation(fields: [deckId], references: [id], onDelete: SetNull)
